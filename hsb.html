@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HSB</title>
+    <style>
+        body { margin: 0; }
+        canvas { width: 100%; height: 100% }
+        #description {
+            padding: 10px;
+        }
+        #index-panel {
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="description">
+        <p>色环表示色相(Hue)，三角形从左下角往右上角表示亮度(Brightness)的递增，从右下角往左上角表示饱和度(Saturation)的递增。</p>
+        <p>点击色环会显示对应的颜色，点击色环以外的区域默认会变成红色。</p>
+    </div>
+    <div id="index-panel">
+        <a href="index.html">&lt;&lt; 返回</a>
+    </div>
+    <script src="js/three.js"></script>
+    <script id="vertexShader" type="x-shader/x-vertex">
+        void main() {
+            gl_Position = vec4(position, 1.0);
+        }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        #define PI 3.14159265359
+
+        uniform vec2 u_resolution;
+        uniform vec2 u_mouse;
+        uniform float u_time;
+        uniform vec2 u_click;
+
+        // Function from Iñigo Quiles
+        // https://www.shadertoy.com/view/MsS3Wc
+        // 这是将hsb标准化(0.0-1.0)后的转换公式
+        vec3 hsb2rgb(vec3 hsb) {
+            vec3 rgb = clamp(abs(mod(hsb.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+            rgb = rgb * rgb * (3.0 - 2.0 * rgb);
+            return hsb.z * mix(vec3(1.0), rgb, hsb.y);
+        }
+
+        bool isDotInTriangle(vec2 p, vec2 a, vec2 b, vec2 c) {
+            /*********************************************************
+                判断点是否在三角形中，重心法：
+                三角形ABC内一点P 有AP = u * AB + v * AC (u >= 0, v >= 0, u + v <= 1)
+                两边同时乘以AB和AC得到两个等式：
+                (1) AP • AB = u * (AB • AB) + v * (AB • AC)
+                (2) AP • AC = u * (AB • AC) + v * (AC • AC)
+                解方程得到：
+                u = ((AC•AC)(AP•AB)-(AC•AB)(AP•AC)) / ((AB•AB)(AC•AC) - (AB•AC)(AC•AB))
+                v = ((AB•AB)(AP•AC)-(AB•AC)(AP•AB)) / ((AB•AB)(AC•AC) - (AB•AC)(AC•AB))
+            *********************************************************/
+            vec2 ap = p - a;
+            vec2 ab = b - a;
+            vec2 ac = c - a;
+            // 设AP为v0, AB为v1, AC为v2
+            float dot01 = dot(ap, ab);
+            float dot02 = dot(ap, ac);
+            float dot11 = dot(ab, ab);
+            float dot12 = dot(ab, ac);
+            float dot22 = dot(ac, ac);
+            float u = (dot22 * dot01 - dot12 * dot02) / (dot11 * dot22 - dot12 * dot12);
+            float v = (dot11 * dot02 - dot12 * dot01) / (dot11 * dot22 - dot12 * dot12);
+            return u >= 0.0 && v >= 0.0 && u + v <= 1.0;
+        }
+
+        void main(){
+            vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
+            vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
+
+            vec3 color = vec3(0.0);
+            vec2 toCenter = vec2(0.5) - uv;
+            float len = length(toCenter);
+            vec2 clickToCenter = vec2(0.5) - u_click / u_resolution;
+            float clickLen = length(clickToCenter);
+            float clickHue = 0.0;
+            // 点击位置
+            if (clickLen >= 0.4 && clickLen <= 0.5) {
+                float rad = atan(clickToCenter.y, clickToCenter.x) + 0.5 * PI;    // h=0在上方
+                clickHue = rad * 0.5 / PI;
+            }
+            // 圆环
+            if (len >= 0.4 && len <= 0.5) {
+                vec3 hsb = vec3(1.0);
+                float rad = atan(toCenter.y, toCenter.x) + 0.5 * PI;    // h=0在上方
+                hsb.x = rad * 0.5 / PI;
+                color = hsb2rgb(hsb);
+            } else {
+                // 三角形，朝上的向量为(0, 0.4)
+                vec2 up = vec2(0.0, 0.4);
+                float rotateRad = 2.0 * PI / 3.0;
+                mat2 rotateMat = mat2(cos(rotateRad), sin(rotateRad), -sin(rotateRad), cos(rotateRad));
+                vec2 right = up * rotateMat;
+                rotateMat = mat2(cos(-rotateRad), sin(-rotateRad), -sin(-rotateRad), cos(-rotateRad));
+                vec2 left = up * rotateMat;
+                up += vec2(0.5);
+                left += vec2(0.5);
+                right += vec2(0.5);
+                if (isDotInTriangle(uv, up, left, right)) {
+                    color = vec3(1.0);
+                    vec2 vs = uv - right;
+                    vec2 vb = uv - left;
+                    float side = length(right - left);
+                    float s = length(vs) / side;
+                    float b = length(vb) / side;
+                    vec3 hsb = vec3(clickHue, s, b);
+                    color = hsb2rgb(hsb);
+                }
+            }
+
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+    <script>
+        var container;
+        var camera, scene, renderer;
+        var uniforms;
+
+        init();
+        animate();
+
+        function init() {
+            container = document.getElementById('container');
+
+            camera = new THREE.Camera();
+            camera.position.z = 1;
+
+            scene = new THREE.Scene();
+
+            var geometry = new THREE.PlaneBufferGeometry(2, 2);
+
+            uniforms = {
+                u_time: { type: "f", value: 1.0 },
+                u_resolution: { type: "v2", value: new THREE.Vector2() },
+                u_mouse: { type: "v2", value: new THREE.Vector2() },
+                u_click: { type: "v2", value: new THREE.Vector2() },
+            };
+
+            var material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: document.getElementById('vertexShader').textContent,
+                fragmentShader: document.getElementById('fragmentShader').textContent,
+            });
+
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(720.0, 720.0);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            container.appendChild(renderer.domElement);
+
+            onWindowResize();
+            window.addEventListener('resize', onWindowResize, false);
+
+            document.onmousemove = function(e) {
+                uniforms.u_mouse.value.x = e.pageX;
+                uniforms.u_mouse.value.y = renderer.domElement.height - e.pageY;
+            };
+
+            document.onclick = function(e) {
+                uniforms.u_click.value.x = e.pageX;
+                uniforms.u_click.value.y = renderer.domElement.height - e.pageY;
+            }
+        }
+
+        function onWindowResize(event) {
+            renderer.setSize(720.0, 720.0);
+            uniforms.u_resolution.value.x = renderer.domElement.width;
+            uniforms.u_resolution.value.y = renderer.domElement.height;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function render() {
+            uniforms.u_time.value += 0.05;
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
