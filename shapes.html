@@ -1,134 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<title>Shapes</title>
-	<style>
-		body { margin: 0; }
-		canvas { width: 100%; height: 100% }
-		#edit-panel {
-			padding: 10px;
-		}
-		#index-panel {
-			padding: 10px;
-		}
-		#txt-func {
-			width: 500px;
-			height: 120px;
-		}
-	</style>
+    <meta charset="UTF-8">
+    <title>Shapes</title>
+    <style>
+        body { margin: 0; }
+        canvas { width: 100%; height: 100% }
+        #description {
+            padding: 10px;
+        }
+        #edit-panel {
+            padding: 10px;
+        }
+        #index-panel {
+            padding: 10px;
+        }
+        #txt-func {
+            width: 500px;
+            height: 50px;
+        }
+    </style>
 </head>
 <body>
-	<div id="container"></div>
-	<div id="edit-panel">
-		<textarea id="txt-func" type="text" multiple="multiple">y = x;</textarea>
-		<br />
-		<input id="btn-confirm" type="button" value="点击生效" />
-	</div>
-	<div id="index-panel">
-		<a href="index.html">&lt;&lt; 返回</a>
-	</div>
-	<script src="js/three.js"></script>
-	<script id="vertexShader" type="x-shader/x-vertex">
-		void main() {
-			gl_Position = vec4(position, 1.0);
-		}
-	</script>
-	<script id="fragmentShader" type="x-shader/x-fragment">
-	</script>
-	<script>
-		var container;
-		var camera, scene, renderer;
-		var uniforms;
+    <div id="container"></div>
+    <div id="description">
+        利用距离场创作图形。
+    </div>
+    <div id="edit-panel">
+        <textarea id="txt-func" type="text" multiple="multiple"></textarea>
+        <br />
+        <input id="btn-confirm" type="button" value="点击生效" />
+    </div>
+    <div id="index-panel">
+        <a href="index.html">&lt;&lt; 返回</a>
+    </div>
+    <script src="js/three.js"></script>
+    <script id="vertexShader" type="x-shader/x-vertex">
+        void main() {
+            gl_Position = vec4(position, 1.0);
+        }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        #define PI 3.14159265359
 
-		var fragShader =
-		`#define PI 3.14159265359
+        uniform vec2 u_resolution;
+        uniform vec2 u_mouse;
+        uniform float u_time;
 
-		uniform vec2 u_resolution;
-		uniform vec2 u_mouse;
-		uniform float u_time;
+        void main(){
+            vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
+            vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
 
-		// 用smoothstep函数的相减获得函数曲线
-		float plot(vec2 uv, float y) {
-			return smoothstep(y - 0.02, y, uv.y) - smoothstep(y, y + 0.02, uv.y);
-		}
+            uv = uv * 2.0 - vec2(1.0);
 
-		void main(){
-			vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
-			vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
+            float d = length(min(abs(uv) - vec2(0.3), vec2(0.0, 0.0)));
 
-			float x = uv.x, y;
-			y = x;		// 函数y与x的映射关系
+            //gl_FragColor = vec4(vec3(fract(d * 10.0)), 1.0);
+            //gl_FragColor = vec4(vec3(step(0.3, d)), 1.0);
+            //gl_FragColor = vec4(vec3(step(0.3, d) * step(d, 0.4)), 1.0);
+            gl_FragColor = vec4(vec3(smoothstep(0.3, 0.4, d) * smoothstep(0.6, 0.5, d)), 1.0);
+        }
+    </script>
+    <script>
+        var container;
+        var scene, camera, renderer;
+        var uniforms;
 
-			vec3 color = vec3(y);	// x轴上的颜色渐变表现出y与x的关系
-			color = mix(color, vec3(0.0, 1.0, 0.0), plot(uv, y));	// 这里用绿线画
+        init();
+        animate();
 
-			gl_FragColor = vec4(color, 1.0);
-		}`;
+        function init() {
+            container = document.getElementById("container");
 
-		init();
-		animate();
+            camera = new THREE.Camera();
+            camera.position.z = 1;
 
-		function init() {
-			container = document.getElementById('container');
+            scene = new THREE.Scene();
 
-			camera = new THREE.Camera();
-			camera.position.z = 1;
+            var geometry = new THREE.PlaneBufferGeometry(2, 2);
 
-			scene = new THREE.Scene();
+            uniforms = {
+                u_time: { type: "f", value: 1.0 },
+                u_resolution: { type: "v2", value: new THREE.Vector2() },
+                u_mouse: { type: "v2", value: new THREE.Vector2() },
+            };
 
-			var geometry = new THREE.PlaneBufferGeometry(2, 2);
+            var material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: document.getElementById("vertexShader").textContent,
+                fragmentShader: document.getElementById("fragmentShader").textContent,
+            });
 
-			uniforms = {
-				u_time: { type: "f", value: 1.0 },
-				u_resolution: { type: "v2", value: new THREE.Vector2() },
-				u_mouse: { type: "v2", value: new THREE.Vector2() },
-			};
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
 
-			var material = new THREE.ShaderMaterial({
-				uniforms: uniforms,
-				vertexShader: document.getElementById('vertexShader').textContent,
-				fragmentShader: fragShader,
-			});
-
-			var mesh = new THREE.Mesh(geometry, material);
-			scene.add(mesh);
-
-			renderer = new THREE.WebGLRenderer();
+            renderer = new THREE.WebGLRenderer();
             renderer.setSize(720.0, 720.0);
-			renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(window.devicePixelRatio);
 
-			container.appendChild(renderer.domElement);
+            container.appendChild(renderer.domElement);
 
-			onWindowResize();
-			window.addEventListener('resize', onWindowResize, false);
+            onWindowResize();
+            window.addEventListener('resize', onWindowResize, false);
 
-			document.onmousemove = function(e) {
-				uniforms.u_mouse.value.x = e.pageX;
-				uniforms.u_mouse.value.y = renderer.domElement.height - e.pageY;
-			};
+            document.onmousemove = function (e) {
+                uniforms.u_mouse.value.x = e.pageX;
+                uniforms.u_mouse.value.y = renderer.domElement.height - e.pageY;
+            };
+        }
 
-			document.getElementById("btn-confirm").onclick = function(e) {
-				mesh.material.fragmentShader = fragShader.replace("y = x;", document.getElementById("txt-func").value);
-				mesh.material.needsUpdate = true;
-			};
-		}
+        function onWindowResize(event) {
+            renderer.setSize(720.0, 720.0);
+            uniforms.u_resolution.value.x = renderer.domElement.width;
+            uniforms.u_resolution.value.y = renderer.domElement.height;
+        }
 
-		function onWindowResize(event) {
-			renderer.setSize(720.0, 720.0);
-			uniforms.u_resolution.value.x = renderer.domElement.width;
-			uniforms.u_resolution.value.y = renderer.domElement.height;
-		}
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
 
-		function animate() {
-			requestAnimationFrame(animate);
-			render();
-		}
-
-		function render() {
-			uniforms.u_time.value += 0.05;
-			renderer.render(scene, camera);
-		}
-	</script>
+        function render() {
+            uniforms.u_time.value += 0.05;
+            renderer.render(scene, camera);
+        }
+    </script>
 </body>
 </html>

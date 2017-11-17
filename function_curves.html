@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Function Curves</title>
+	<style>
+		body { margin: 0; }
+		canvas { width: 100%; height: 100% }
+		#description {
+			padding: 10px;
+		}
+		#edit-panel {
+			padding: 10px;
+		}
+		#index-panel {
+			padding: 10px;
+		}
+		#txt-func {
+			width: 500px;
+			height: 120px;
+		}
+	</style>
+</head>
+<body>
+	<div id="container"></div>
+	<div id="description">
+		用函数关系来反映颜色的渐变关系，尝试用各种函数看看效果吧。
+	</div>
+	<div id="edit-panel">
+		<textarea id="txt-func" type="text" multiple="multiple">y = x;</textarea>
+		<br />
+		<input id="btn-confirm" type="button" value="点击生效" />
+	</div>
+	<div id="index-panel">
+		<a href="index.html">&lt;&lt; 返回</a>
+	</div>
+	<script src="js/three.js"></script>
+	<script id="vertexShader" type="x-shader/x-vertex">
+		void main() {
+			gl_Position = vec4(position, 1.0);
+		}
+	</script>
+	<script id="fragmentShader" type="x-shader/x-fragment">
+	</script>
+	<script>
+		var container;
+		var camera, scene, renderer;
+		var uniforms;
+
+		var fragShader =
+		`#define PI 3.14159265359
+
+		uniform vec2 u_resolution;
+		uniform vec2 u_mouse;
+		uniform float u_time;
+
+		// 用smoothstep函数的相减获得函数曲线
+		float plot(vec2 uv, float y) {
+			return smoothstep(y - 0.02, y, uv.y) - smoothstep(y, y + 0.02, uv.y);
+		}
+
+		void main(){
+			vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
+			vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
+
+			float x = uv.x, y;
+			y = x;		// 函数y与x的映射关系
+
+			vec3 color = vec3(y);	// x轴上的颜色渐变表现出y与x的关系
+			color = mix(color, vec3(0.0, 1.0, 0.0), plot(uv, y));	// 这里用绿线画
+
+			gl_FragColor = vec4(color, 1.0);
+		}`;
+
+		init();
+		animate();
+
+		function init() {
+			container = document.getElementById('container');
+
+			camera = new THREE.Camera();
+			camera.position.z = 1;
+
+			scene = new THREE.Scene();
+
+			var geometry = new THREE.PlaneBufferGeometry(2, 2);
+
+			uniforms = {
+				u_time: { type: "f", value: 1.0 },
+				u_resolution: { type: "v2", value: new THREE.Vector2() },
+				u_mouse: { type: "v2", value: new THREE.Vector2() },
+			};
+
+			var material = new THREE.ShaderMaterial({
+				uniforms: uniforms,
+				vertexShader: document.getElementById('vertexShader').textContent,
+				fragmentShader: fragShader,
+			});
+
+			var mesh = new THREE.Mesh(geometry, material);
+			scene.add(mesh);
+
+			renderer = new THREE.WebGLRenderer();
+            renderer.setSize(720.0, 720.0);
+			renderer.setPixelRatio(window.devicePixelRatio);
+
+			container.appendChild(renderer.domElement);
+
+			onWindowResize();
+			window.addEventListener('resize', onWindowResize, false);
+
+			document.onmousemove = function(e) {
+				uniforms.u_mouse.value.x = e.pageX;
+				uniforms.u_mouse.value.y = renderer.domElement.height - e.pageY;
+			};
+
+			document.getElementById("btn-confirm").onclick = function(e) {
+				mesh.material.fragmentShader = fragShader.replace("y = x;", document.getElementById("txt-func").value);
+				mesh.material.needsUpdate = true;
+			};
+		}
+
+		function onWindowResize(event) {
+			renderer.setSize(720.0, 720.0);
+			uniforms.u_resolution.value.x = renderer.domElement.width;
+			uniforms.u_resolution.value.y = renderer.domElement.height;
+		}
+
+		function animate() {
+			requestAnimationFrame(animate);
+			render();
+		}
+
+		function render() {
+			uniforms.u_time.value += 0.05;
+			renderer.render(scene, camera);
+		}
+	</script>
+</body>
+</html>
