@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shapes in polar coordinates</title>
+    <style>
+        body { margin: 0; }
+        canvas { width: 100%; height: 100% }
+        #description {
+            padding: 10px;
+        }
+        #edit-panel {
+            padding: 10px;
+        }
+        #index-panel {
+            padding: 10px;
+        }
+        #txt-func {
+            width: 500px;
+            height: 120px;
+        }
+        #container2 {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <span id="container1"></span>
+    <span id="container2"></span>
+    <div id="description">
+        用极坐标创作图形。右边绿线表示造型函数的曲线，红线切割了四个象限，蓝线表示y=-1和y=1两条直线。
+    </div>
+    <div id="edit-panel">
+        <textarea id="txt-func" type="text" multiple="multiple">y = abs(cos(x * 3.0));</textarea>
+        <br />
+        <input id="btn-confirm" type="button" value="点击生效" />
+    </div>
+    <div id="index-panel">
+        <a href="index.html">&lt;&lt; 返回</a>
+    </div>
+    <script src="js/three.js"></script>
+    <script id="vertexShader" type="x-shader/x-vertex">
+        void main() {
+            gl_Position = vec4(position, 1.0);
+        }
+    </script>
+    <script id="fragmentShader1" type="x-shader/x-fragment">
+        #define PI 3.14159265359
+        #define TWO_PI 6.28318530718
+
+        uniform vec2 u_resolution;
+        uniform vec2 u_mouse;
+        uniform float u_time;
+
+        void main(){
+            vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
+            vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
+
+            vec2 toCenter = uv - vec2(0.5);
+            //mat2 rotateMat = mat2(cos(u_time), -sin(u_time), sin(u_time), cos(u_time));
+            //toCenter = toCenter * rotateMat;
+
+            float r = length(toCenter) * 2.0;
+            float x = atan(-toCenter.y, toCenter.x) + PI * 0.5, y;
+
+            y = abs(cos(x * 3.0));
+
+            vec3 color = vec3(step(r, y));
+
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+    <script id="fragmentShader2" type="x-shader/x-fragment">
+        #define PI 3.14159265359
+        #define TWO_PI 6.28318530718
+
+		uniform vec2 u_resolution;
+		uniform vec2 u_mouse;
+		uniform float u_time;
+
+		// 用smoothstep函数的相减获得函数曲线
+		float ploty(vec2 uv, float y) {
+			return smoothstep(y - 0.02, y, uv.y) - smoothstep(y, y + 0.02, uv.y);
+		}
+		float plotx(vec2 uv, float x) {
+			return smoothstep(x - 0.02, x, uv.x) - smoothstep(x, x + 0.02, uv.x);
+		}
+
+		void main(){
+			vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
+			vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
+
+			uv.x *= TWO_PI;
+			uv.y = uv.y * TWO_PI - PI;
+
+			float x = uv.x, y;
+			y = abs(cos(x * 3.0));		// 函数y与x的映射关系
+
+			vec3 color = vec3(y);	// x轴上的颜色渐变表现出y与x的关系
+			color = mix(color, vec3(1.0, 1.0, 0.0), ploty(uv, 0.0));
+			color = mix(color, vec3(0.0, 0.0, 1.0), ploty(uv, 1.0));
+			color = mix(color, vec3(0.0, 0.0, 1.0), ploty(uv, -1.0));
+			color = mix(color, vec3(1.0, 0.0, 0.0), plotx(uv, PI * 0.5));
+			color = mix(color, vec3(1.0, 0.0, 0.0), plotx(uv, PI));
+			color = mix(color, vec3(1.0, 0.0, 0.0), plotx(uv, PI * 1.5));
+			color = mix(color, vec3(1.0, 0.0, 0.0), plotx(uv, PI * 2.0));
+
+			color = mix(color, vec3(0.0, 1.0, 0.0), ploty(uv, y));
+
+			gl_FragColor = vec4(color, 1.0);
+		}
+    </script>
+    <script>
+        var coms1 = init('container1', 'vertexShader', 'fragmentShader1');
+        var container1 = coms1.container;
+        var scene1 = coms1.scene;
+        var camera1 = coms1.camera;
+        var renderer1 = coms1.renderer;
+        var uniforms1 = coms1.uniforms;
+        var mesh1 = coms1.mesh;
+        var coms2 = init('container2', 'vertexShader', 'fragmentShader2');
+        var container2 = coms2.container;
+        var scene2 = coms2.scene;
+        var camera2 = coms2.camera;
+        var renderer2 = coms2.renderer;
+        var uniforms2 = coms2.uniforms;
+        var mesh2 = coms2.mesh;
+        animate(scene1, camera1, renderer1, uniforms1);
+        animate(scene2, camera2, renderer2, uniforms2);
+
+        document.getElementById("btn-confirm").onclick = function(e) {
+            mesh1.material.fragmentShader = document.getElementById('fragmentShader1').textContent.replace("y = abs(cos(x * 3.0));", document.getElementById("txt-func").value);
+            mesh1.material.needsUpdate = true;
+            mesh2.material.fragmentShader = document.getElementById('fragmentShader2').textContent.replace("y = abs(cos(x * 3.0));", document.getElementById("txt-func").value);
+            mesh2.material.needsUpdate = true;
+        };
+
+        function init(containerId, vertexShaderId, fragShaderId) {
+            var container = document.getElementById(containerId);
+
+            var camera = new THREE.Camera();
+            camera.position.z = 1;
+
+            var scene = new THREE.Scene();
+
+            var geometry = new THREE.PlaneBufferGeometry(2, 2);
+
+            var uniforms = {
+                u_time: { type: "f", value: 1.0 },
+                u_resolution: { type: "v2", value: new THREE.Vector2() },
+                u_mouse: { type: "v2", value: new THREE.Vector2() },
+            };
+
+            var material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: document.getElementById(vertexShaderId).textContent,
+                fragmentShader: document.getElementById(fragShaderId).textContent,
+            });
+
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(720.0, 720.0);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            uniforms.u_resolution.value.x = renderer.domElement.width;
+            uniforms.u_resolution.value.y = renderer.domElement.height;
+
+            container.appendChild(renderer.domElement);
+
+            document.onmousemove = function (e) {
+                uniforms.u_mouse.value.x = e.pageX;
+                uniforms.u_mouse.value.y = renderer.domElement.height - e.pageY;
+            };
+
+            return { container: container, scene: scene, camera: camera, renderer: renderer, uniforms: uniforms, mesh: mesh, };
+        }
+
+        function animate(scene, camera, renderer, uniforms) {
+            requestAnimationFrame(function () {
+                animate(scene, camera, renderer, uniforms);
+            });
+            render(scene, camera, renderer, uniforms);
+        }
+
+        function render(scene, camera, renderer, uniforms) {
+            uniforms.u_time.value += 0.05;
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
