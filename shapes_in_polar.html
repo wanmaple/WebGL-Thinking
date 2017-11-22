@@ -61,7 +61,7 @@
             //toCenter = toCenter * rotateMat;
 
             float r = length(toCenter) * 2.0;
-            float x = atan(-toCenter.y, toCenter.x) + PI * 0.5, y;
+            float x = mod(atan(-toCenter.y, toCenter.x) + PI * 0.5, PI * 2.0), y;   // 用取余函数确保角度在[0, 2π]
 
             y = abs(cos(x * 3.0));
 
