@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Polygons</title>
+    <title>Matrices</title>
     <style>
         body { margin: 0; }
         canvas { width: 100%; height: 100% }
@@ -12,20 +12,12 @@
         #index-panel {
             padding: 10px;
         }
-        #edit-panel {
-            padding: 10px;
-        }
     </style>
 </head>
 <body>
     <div id="container"></div>
     <div id="description">
-        利用距离场绘制正多边形。
-    </div>
-    <div id="edit-panel">
-        边数
-        <input id="txt-sides" type="text" value="3" />
-        <input id="btn-confirm" type="button" value="点击生效" />
+        用矩阵变换实现平移、旋转、缩放。
     </div>
     <div id="index-panel">
         <a href="index.html">&lt;&lt; 返回</a>
@@ -43,6 +35,17 @@
         uniform vec2 u_resolution;
         uniform vec2 u_mouse;
         uniform float u_time;
+
+        mat2 rotate2d(float rad) {
+            return mat2(cos(rad), -sin(rad), sin(rad), cos(rad));
+        }
+
+        mat2 scale2d(vec2 scale) {
+            return mat2(scale.x, 0.0, 0.0, scale.y);
+        }
+
+        float box(vec2 uv, vec2 size) {
+        }
 
         void main() {
             vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
@@ -107,15 +110,6 @@
             document.onmousemove = function (e) {
                 uniforms.u_mouse.value.x = e.pageX;
                 uniforms.u_mouse.value.y = renderer.domElement.height - e.pageY;
-            };
-
-            document.getElementById('btn-confirm').onclick = function (e) {
-                var sides = parseInt(document.getElementById('txt-sides').value);
-                if (sides) {
-                    var fragShader = document.getElementById('fragmentShader').textContent.replace('int sides = 3;', 'int sides = ' + sides.toString() + ';');
-                    mesh.material.fragmentShader = fragShader;
-                    mesh.material.needsUpdate = true;
-                }
             };
         }
 
