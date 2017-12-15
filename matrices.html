@@ -44,23 +44,26 @@
             return mat2(scale.x, 0.0, 0.0, scale.y);
         }
 
-        float box(vec2 uv, vec2 size) {
+        float box(vec2 vec, vec2 size) {
+            // size 表示长宽
+            vec2 wh = step(vec, size);
+            return wh.x * wh.y;
+        }
+
+        float cross(vec2 vec, float size) {
+            size *= 0.5;
+            return box(abs(vec), vec2(size, size * 0.25)) + box(abs(vec), vec2(size * 0.25, size));   // 两个矩形叠加变成十字
         }
 
         void main() {
             vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
             vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
 
-            uv = uv * 2.0 - vec2(1.0);      // 将uv映射到-1.0~1.0
-
-            int sides = 3;
-
-            float a = atan(uv.x, uv.y) + PI;
-            float r = TWO_PI / float(sides);
-
-            float d = cos(floor(0.5 + a / r) * r - a) * length(uv);     // d表示多边形内切圆的半径，以d作为距离场的图形就是正多边形了。
-
-            vec3 color = vec3(smoothstep(0.41, 0.4, d));
+            vec2 toCenter = uv - vec2(0.5);
+            toCenter += vec2(cos(u_time), sin(u_time)) * 0.25;
+            toCenter = rotate2d(sin(u_time * 0.5) * TWO_PI) * toCenter;
+            toCenter = scale2d(vec2(sin(u_time * 0.5))) * toCenter;
+            vec3 color = vec3(cross(toCenter, 0.25));
 
             gl_FragColor = vec4(color, 1.0);
         }
