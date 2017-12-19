@@ -46,13 +46,14 @@
 
         float box(vec2 vec, vec2 size) {
             // size 表示长宽
-            vec2 wh = step(vec, size);
+            vec2 smooth = vec2(0.005);
+            vec2 wh = smoothstep(size + smooth, size, vec);
             return wh.x * wh.y;
         }
 
         float cross(vec2 vec, float size) {
             size *= 0.5;
-            return box(abs(vec), vec2(size, size * 0.25)) + box(abs(vec), vec2(size * 0.25, size));   // 两个矩形叠加变成十字
+            return max(box(abs(vec), vec2(size, size * 0.25)), box(abs(vec), vec2(size * 0.25, size)));   // 两个矩形叠加变成十字
         }
 
         void main() {
@@ -63,7 +64,7 @@
             toCenter += vec2(cos(u_time), sin(u_time)) * 0.25;
             toCenter = rotate2d(sin(u_time * 0.5) * TWO_PI) * toCenter;
             toCenter = scale2d(vec2(sin(u_time * 0.5))) * toCenter;
-            vec3 color = vec3(cross(toCenter, 0.25));
+            vec3 color = vec3(cross(toCenter, 0.5));
 
             gl_FragColor = vec4(color, 1.0);
         }
