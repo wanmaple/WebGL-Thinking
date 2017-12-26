@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Matrices</title>
+    <title>Patterns</title>
     <style>
         body { margin: 0; }
         canvas { width: 100%; height: 100% }
@@ -17,17 +17,17 @@
 <body>
     <div id="container"></div>
     <div id="description">
-        用矩阵变换实现平移、旋转、缩放。
+        利用fract函数来扩张形成图案。
     </div>
     <div id="index-panel">
         <a href="index.html">&lt;&lt; 返回</a>
     </div>
     <script src="js/three.js"></script>
     <script id="vertexShader" type="x-shader/x-vertex">
-        void main() {
-            gl_Position = vec4(position, 1.0);
-        }
-    </script>
+            void main() {
+                gl_Position = vec4(position, 1.0);
+            }
+        </script>
     <script id="fragmentShader" type="x-shader/x-fragment">
         #define PI 3.14159265359
         #define TWO_PI 6.28318530718
@@ -40,30 +40,49 @@
             return mat2(cos(rad), -sin(rad), sin(rad), cos(rad));
         }
 
-        mat2 scale2d(vec2 scale) {
-            return mat2(scale.x, 0.0, 0.0, scale.y);
+        vec2 tile(vec2 uv, float width, float height) {
+            uv *= vec2(width, height);
+            uv = fract(uv);
+            return uv;
         }
 
-        float box(vec2 vec, vec2 size) {
-            // size 表示长宽
-            vec2 smooth = vec2(0.005);
-            vec2 wh = smoothstep(size + smooth, size, vec);
-            return wh.x * wh.y;
-        }
+        vec2 rotateTilePattern(vec2 uv) {
+            uv *= 2.0;
 
-        float cross(vec2 vec, float size) {
-            return max(box(abs(vec), vec2(size, size * 0.25)), box(abs(vec), vec2(size * 0.25, size)));   // 两个矩形叠加变成十字
+            //      |
+            //  2   |   3
+            //      |
+            //--------------
+            //      |
+            //  0   |   1
+            //      |
+            float idx = 0.0;
+            idx += step(1.0, mod(uv.x, 2.0));
+            idx += step(1.0, mod(uv.y, 2.0)) * 2.0;
+
+            uv = fract(uv);
+
+            uv -= vec2(0.5);
+            if (idx == 1.0) {
+                uv *= rotate2d(-PI * 0.5);
+            } else if (idx == 2.0) {
+                uv *= rotate2d(PI * 0.5);
+            } else if (idx == 3.0) {
+                uv *= rotate2d(PI);
+            }
+            uv += vec2(0.5);
+
+            return uv;
         }
 
         void main() {
             vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
             vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
 
-            uv = uv * 2.0 - vec2(1.0);
-            uv += vec2(cos(u_time), sin(u_time)) * 0.5;
-            uv = rotate2d(sin(u_time * 0.5) * TWO_PI) * uv;
-            uv = scale2d(vec2(sin(u_time * 0.5))) * uv;
-            vec3 color = vec3(cross(uv, 0.25));
+            uv = tile(uv, 4.0, 4.0);
+            uv = rotateTilePattern(uv);
+            float d = smoothstep(uv.x - 0.01, uv.x + 0.01, uv.y);
+            vec3 color = vec3(d);
 
             gl_FragColor = vec4(color, 1.0);
         }
