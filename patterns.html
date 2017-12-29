@@ -75,13 +75,23 @@
             return uv;
         }
 
+        vec2 rotateFromCenter(vec2 uv, float rad) {
+            uv -= vec2(0.5);
+            uv *= rotate2d(rad);
+            uv += vec2(0.5);
+            return uv;
+        }
+
         void main() {
             vec2 uv = gl_FragCoord.xy / u_resolution;		// 可以理解为整个画布的uv坐标
             vec2 muv = u_mouse / u_resolution;		// 鼠标所在位置的uv坐标
 
             uv = tile(uv, 4.0, 4.0);
+            uv = rotateFromCenter(uv, -PI * u_time * 0.25);
             uv = rotateTilePattern(uv);
-            float d = smoothstep(uv.x - 0.01, uv.x + 0.01, uv.y);
+            uv = rotateFromCenter(uv, PI * u_time * 0.25);
+            float x = uv.x;
+            float d = smoothstep(x - 0.01, x + 0.01, uv.y);
             vec3 color = vec3(d);
 
             gl_FragColor = vec4(color, 1.0);
